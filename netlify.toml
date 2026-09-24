@@ -2,6 +2,10 @@
   command = "npm run build"
   publish = "dist"
 
+# Vite 8 cần Node ≥ 20.19
+[build.environment]
+  NODE_VERSION = "22"
+
 # App 1 trang: mọi đường dẫn (/habits, /subscriptions…) đều trả về index.html
 [[redirects]]
   from = "/*"
