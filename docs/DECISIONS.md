@@ -51,5 +51,5 @@ Những chỗ PRD chưa nói rõ và cách đã chọn (theo nguyên tắc "ch�
 
 ## Nội dung chuyển khoản sửa được (thêm 30/09/2026)
 
-35. **Chỉ lưu phần chữ** (`transfer_note`), tháng/năm app tự gắn cuối → sang kỳ sau không phải sửa lại. Tổng vẫn ≤ 25 ký tự không dấu. Để trống / trùng mặc định → lưu `null`, bill quay về lấy tên gói.
+35. **Nội dung CK do người dùng tự đặt, lưu nguyên văn** (`transfer_note`) — không tự gắn tháng/năm (người dùng không cần). Không dấu, in hoa, ≤ 25 ký tự. Để trống / trùng mặc định → lưu `null`, bill lấy tên gói.
 36. **Bill giữ id thay vì bản chụp gói** để sửa xong hiện ngay, QR cập nhật theo.

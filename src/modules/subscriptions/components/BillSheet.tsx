@@ -9,7 +9,7 @@ import { Sheet } from '../../../shared/Sheet';
 import { GhostButton, PrimaryButton } from '../../../shared/ui';
 import { useToast } from '../../../shared/Toast';
 import { useSubscriptionActions } from '../data/hooks';
-import { notePrefix, notePrefixMax, noteSuffix, transferNote } from '../logic/bill';
+import { cleanNote, NOTE_MAX, transferNote } from '../logic/bill';
 import { addCycles, cycleLabel, nextRenewal } from '../logic/calc';
 import type { Subscription } from '../types';
 import { ServiceIcon } from './ServiceIcon';
@@ -25,15 +25,14 @@ export function BillSheet({ sub, onClose, onEdit }: { sub: Subscription; onClose
   const today = new Date();
   const due = nextRenewal(sub, today);
   const periodEnd = addCycles(due, sub.cycleCount, sub.cycleUnit, 1);
-  const prefixMax = notePrefixMax(due);
-  const note = draft === null ? transferNote(sub, due) : transferNote({ name: sub.name, transferNote: draft }, due);
+  const note = transferNote(draft === null ? sub : { name: sub.name, transferNote: draft });
+  const defaultNote = transferNote({ name: sub.name });
 
   const saveNote = () => {
     if (draft === null) return;
-    const clean = sanitizeNote(draft).toUpperCase().slice(0, prefixMax).trim();
-    const auto = notePrefix({ name: sub.name }, due);
+    const clean = cleanNote(draft);
     // Trùng nội dung mặc định → lưu trống để sau này đổi tên gói vẫn tự theo
-    const value = !clean || clean === auto ? null : clean;
+    const value = !clean || clean === defaultNote ? null : clean;
     if (value !== (sub.transferNote ?? null)) {
       actions.update(sub.id, { transferNote: value });
       toast({ message: 'Đã lưu nội dung chuyển khoản' });
@@ -140,7 +139,7 @@ export function BillSheet({ sub, onClose, onEdit }: { sub: Subscription; onClose
           {draft === null ? (
             <button
               type="button"
-              onClick={() => setDraft(notePrefix(sub, due))}
+              onClick={() => setDraft(note)}
               className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-lg bg-chip px-3 py-2 text-[13px] text-muted hover:text-ink"
             >
               <span>Nội dung CK: <span className="font-semibold text-ink">{note}</span></span>
@@ -155,20 +154,19 @@ export function BillSheet({ sub, onClose, onEdit }: { sub: Subscription; onClose
                   id="transfer-note"
                   autoFocus
                   value={draft}
-                  onChange={(e) => setDraft(sanitizeNote(e.target.value + (e.target.value.endsWith(' ') ? ' ' : '')).toUpperCase().slice(0, prefixMax))}
+                  onChange={(e) => setDraft(sanitizeNote(e.target.value + (e.target.value.endsWith(' ') ? ' ' : '')).toUpperCase().slice(0, NOTE_MAX))}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') saveNote();
                     if (e.key === 'Escape') { e.stopPropagation(); setDraft(null); }
                   }}
-                  maxLength={prefixMax}
-                  placeholder={notePrefix({ name: sub.name }, due)}
+                  maxLength={NOTE_MAX}
+                  placeholder={defaultNote}
                   className="h-11 min-w-0 flex-1 bg-transparent text-[15px] font-semibold uppercase outline-none placeholder:font-normal placeholder:text-subtle"
                 />
-                <span className="money shrink-0 text-[15px] text-muted">{noteSuffix(due).trim()}</span>
               </div>
               <div className="mt-1.5 flex items-center justify-between text-[12px] text-subtle">
-                <span>Tháng/năm tự đổi mỗi kỳ · <span className="money">{draft.length}/{prefixMax}</span></span>
-                <button type="button" onClick={() => setDraft(notePrefix({ name: sub.name }, due))} className="inline-flex min-h-8 shrink-0 items-center gap-1 whitespace-nowrap hover:text-ink">
+                <span>Không dấu · tối đa <span className="money">{draft.length}/{NOTE_MAX}</span></span>
+                <button type="button" onClick={() => setDraft(defaultNote)} className="inline-flex min-h-8 shrink-0 items-center gap-1 whitespace-nowrap hover:text-ink">
                   <RotateCcw size={12} /> Mặc định
                 </button>
               </div>
