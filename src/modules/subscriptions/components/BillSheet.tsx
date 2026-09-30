@@ -1,16 +1,16 @@
 import { useMemo, useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Check, Copy, Pencil, RotateCcw, Share2 } from 'lucide-react';
 import { PAYMENT } from '../../../config/payment';
 import { buildVietQR, qrDataUrl, sanitizeNote } from '../../../lib/vietqr';
-import { money, normalize, shortDate } from '../../../lib/format';
+import { isoDate, money, normalize, shortDate } from '../../../lib/format';
 import { Sheet } from '../../../shared/Sheet';
 import { GhostButton, PrimaryButton } from '../../../shared/ui';
 import { useToast } from '../../../shared/Toast';
 import { useSubscriptionActions } from '../data/hooks';
-import { cleanNote, NOTE_MAX, transferNote } from '../logic/bill';
-import { addCycles, cycleLabel, nextRenewal } from '../logic/calc';
+import { billPeriod, cleanNote, NOTE_MAX, transferNote } from '../logic/bill';
+import { cycleLabel, nextRenewal } from '../logic/calc';
 import type { Subscription } from '../types';
 import { ServiceIcon } from './ServiceIcon';
 
@@ -21,10 +21,28 @@ export function BillSheet({ sub, onClose, onEdit }: { sub: Subscription; onClose
   const actions = useSubscriptionActions();
   // Đang sửa nội dung CK: null = không sửa
   const [draft, setDraft] = useState<string | null>(null);
+  // Đang sửa kỳ sử dụng: null = không sửa
+  const [periodDraft, setPeriodDraft] = useState<{ from: string; to: string } | null>(null);
 
   const today = new Date();
   const due = nextRenewal(sub, today);
-  const periodEnd = addCycles(due, sub.cycleCount, sub.cycleUnit, 1);
+  const period = billPeriod(sub, due);
+  const autoPeriod = billPeriod({ ...sub, periodOverride: null }, due);
+  const periodText = (from: string, to: string) => {
+    const a = parseISO(from);
+    const b = parseISO(to);
+    return `${format(a, a.getFullYear() === b.getFullYear() ? 'dd/MM' : 'dd/MM/yyyy')} – ${format(b, 'dd/MM/yyyy')}`;
+  };
+  const periodValid = !!periodDraft?.from && !!periodDraft?.to && periodDraft.from <= periodDraft.to;
+
+  const savePeriod = () => {
+    if (!periodDraft || !periodValid) return;
+    const same = periodDraft.from === autoPeriod.from && periodDraft.to === autoPeriod.to;
+    // Trùng mặc định → xóa, để kỳ sau vẫn tự tính
+    actions.update(sub.id, { periodOverride: same ? null : { due: isoDate(due), ...periodDraft } });
+    toast({ message: same ? 'Kỳ sử dụng về mặc định' : 'Đã lưu kỳ sử dụng cho kỳ này' });
+    setPeriodDraft(null);
+  };
   const note = transferNote(draft === null ? sub : { name: sub.name, transferNote: draft });
   const defaultNote = transferNote({ name: sub.name });
 
@@ -118,10 +136,51 @@ export function BillSheet({ sub, onClose, onEdit }: { sub: Subscription; onClose
               <dt className="text-muted">Chu kỳ</dt>
               <dd>{cycleLabel(sub.cycleCount, sub.cycleUnit)}</dd>
             </div>
-            <div className="flex justify-between gap-3">
-              <dt className="shrink-0 text-muted">Kỳ sử dụng</dt>
-              <dd className="text-right">{format(due, 'dd/MM')} – {format(periodEnd, 'dd/MM/yyyy')}</dd>
-            </div>
+            {periodDraft === null ? (
+              <div className="flex items-center justify-between gap-3">
+                <dt className="shrink-0 text-muted">Kỳ sử dụng</dt>
+                <dd>
+                  <button
+                    type="button"
+                    onClick={() => setPeriodDraft({ from: period.from, to: period.to })}
+                    aria-label="Sửa kỳ sử dụng"
+                    className="-my-1 -mr-1.5 inline-flex min-h-8 items-center gap-1.5 rounded-lg px-1.5 text-right hover:bg-chip"
+                  >
+                    {periodText(period.from, period.to)}
+                    <Pencil size={13} className="shrink-0 text-muted" data-no-capture />
+                  </button>
+                </dd>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-accent p-3 ring-2 ring-accent/15" data-no-capture>
+                <p className="text-muted">Kỳ sử dụng</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {(['from', 'to'] as const).map((k) => (
+                    <label key={k} className="block">
+                      <span className="text-[12px] text-subtle">{k === 'from' ? 'Từ ngày' : 'Đến ngày'}</span>
+                      <input
+                        type="date"
+                        value={periodDraft[k]}
+                        onChange={(e) => setPeriodDraft({ ...periodDraft, [k]: e.target.value })}
+                        className="mt-0.5 h-11 w-full rounded-lg border border-line bg-surface px-2 text-[15px] outline-none focus:border-accent"
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-1.5 flex items-center justify-between gap-2 text-[12px] text-subtle">
+                  <span className={periodValid ? '' : 'text-danger'}>{periodValid ? 'Chỉ áp dụng cho kỳ này' : 'Ngày kết thúc phải sau ngày bắt đầu'}</span>
+                  <button type="button" onClick={() => setPeriodDraft({ from: autoPeriod.from, to: autoPeriod.to })} className="inline-flex min-h-8 shrink-0 items-center gap-1 whitespace-nowrap hover:text-ink">
+                    <RotateCcw size={12} /> Mặc định
+                  </button>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <GhostButton type="button" onClick={() => setPeriodDraft(null)} className="min-h-11 flex-1 text-[15px]">Hủy</GhostButton>
+                  <PrimaryButton type="button" onClick={savePeriod} disabled={!periodValid} className="flex min-h-11 flex-1 items-center justify-center gap-1.5 text-[15px]">
+                    <Check size={18} /> Lưu
+                  </PrimaryButton>
+                </div>
+              </div>
+            )}
             <div className="flex justify-between gap-3">
               <dt className="text-muted">Hạn thanh toán</dt>
               <dd className="font-semibold">{shortDate(due)}</dd>

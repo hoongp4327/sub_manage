@@ -53,3 +53,4 @@ Những chỗ PRD chưa nói rõ và cách đã chọn (theo nguyên tắc "ch�
 
 35. **Nội dung CK do người dùng tự đặt, lưu nguyên văn** (`transfer_note`) — không tự gắn tháng/năm (người dùng không cần). Không dấu, in hoa, ≤ 25 ký tự. Để trống / trùng mặc định → lưu `null`, bill lấy tên gói.
 36. **Bill giữ id thay vì bản chụp gói** để sửa xong hiện ngay, QR cập nhật theo.
+37. **Kỳ sử dụng sửa được, chỉ cho kỳ đang thu** (`period_override` jsonb `{due, from, to}`). Khi hạn thanh toán sang kỳ mới (`due` khác) → tự tính lại mặc định, tránh kẹt ngày cũ. Chọn lại đúng mặc định → xóa override.

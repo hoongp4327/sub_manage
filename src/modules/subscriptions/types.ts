@@ -24,6 +24,8 @@ export interface Subscription {
   payer?: string | null;
   /** Nội dung CK tự đặt (chỉ phần chữ; tháng/năm app tự gắn). Trống = lấy tên gói */
   transferNote?: string | null;
+  /** Kỳ sử dụng tự sửa — chỉ áp dụng khi hạn thanh toán đang thu = due */
+  periodOverride?: { due: string; from: string; to: string } | null;
   /** Đã hủy gia hạn: vẫn dùng đến ngày này (yyyy-mm-dd), sau đó tự vào Lưu trữ */
   endsAt?: string | null;
   status: Status;
