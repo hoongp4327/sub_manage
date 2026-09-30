@@ -48,3 +48,8 @@ Những chỗ PRD chưa nói rõ và cách đã chọn (theo nguyên tắc "ch�
 32. **Màn mật mã 6 số chạy trước cả đăng nhập** (`src/app/PasscodeGate.tsx`). Chỉ là rào cản cho người lạ, không phải bảo mật: kiểm tra ở trình duyệt, ai đọc được code JS vẫn vượt qua được. Bảo vệ dữ liệu thật vẫn là Google login + RLS.
 33. **Code chỉ giữ bản băm** (FNV-1a, `src/config/passcode.ts`), không dùng `crypto.subtle` để vẫn chạy khi mở qua `http://` trong mạng LAN. Máy đã mở khóa được nhớ trong localStorage; đổi mã → mọi máy phải nhập lại.
 34. **Bỏ đăng nhập Google.** Chế độ Supabase dùng 1 tài khoản email/mật khẩu tạo sẵn trong dashboard (tắt đăng ký mới); màn mật mã gọi `signInWithPassword(VITE_ALLOWED_EMAIL, mã)` → mã được kiểm tra trên máy chủ, RLS giữ nguyên. Không dùng cách mở RLS cho khách vì khóa anon nằm công khai trong JS. Đánh đổi: mật khẩu 6 số yếu hơn mật khẩu dài — Supabase giới hạn số lần thử đăng nhập theo IP, chấp nhận được cho dữ liệu cá nhân loại này.
+
+## Nội dung chuyển khoản sửa được (thêm 30/09/2026)
+
+35. **Chỉ lưu phần chữ** (`transfer_note`), tháng/năm app tự gắn cuối → sang kỳ sau không phải sửa lại. Tổng vẫn ≤ 25 ký tự không dấu. Để trống / trùng mặc định → lưu `null`, bill quay về lấy tên gói.
+36. **Bill giữ id thay vì bản chụp gói** để sửa xong hiện ngay, QR cập nhật theo.

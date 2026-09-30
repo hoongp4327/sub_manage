@@ -1,33 +1,45 @@
 import { useMemo, useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
 import { format } from 'date-fns';
-import { Copy, Pencil, Share2 } from 'lucide-react';
+import { Check, Copy, Pencil, RotateCcw, Share2 } from 'lucide-react';
 import { PAYMENT } from '../../../config/payment';
 import { buildVietQR, qrDataUrl, sanitizeNote } from '../../../lib/vietqr';
 import { money, normalize, shortDate } from '../../../lib/format';
 import { Sheet } from '../../../shared/Sheet';
 import { GhostButton, PrimaryButton } from '../../../shared/ui';
 import { useToast } from '../../../shared/Toast';
+import { useSubscriptionActions } from '../data/hooks';
+import { notePrefix, notePrefixMax, noteSuffix, transferNote } from '../logic/bill';
 import { addCycles, cycleLabel, nextRenewal } from '../logic/calc';
 import type { Subscription } from '../types';
 import { ServiceIcon } from './ServiceIcon';
-
-/** Nội dung chuyển khoản gợi ý: không dấu, ≤ 25 ký tự, luôn giữ tháng/năm — vd "CHATGPT PLUS T10 2026" */
-function transferNote(sub: Subscription, due: Date) {
-  const suffix = ` T${due.getMonth() + 1} ${due.getFullYear()}`;
-  const name = sanitizeNote(sub.name).toUpperCase().slice(0, 25 - suffix.length).trim();
-  return name + suffix;
-}
 
 export function BillSheet({ sub, onClose, onEdit }: { sub: Subscription; onClose: () => void; onEdit: () => void }) {
   const toast = useToast();
   const billRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
+  const actions = useSubscriptionActions();
+  // Đang sửa nội dung CK: null = không sửa
+  const [draft, setDraft] = useState<string | null>(null);
 
   const today = new Date();
   const due = nextRenewal(sub, today);
   const periodEnd = addCycles(due, sub.cycleCount, sub.cycleUnit, 1);
-  const note = sanitizeNote(transferNote(sub, due));
+  const prefixMax = notePrefixMax(due);
+  const note = draft === null ? transferNote(sub, due) : transferNote({ name: sub.name, transferNote: draft }, due);
+
+  const saveNote = () => {
+    if (draft === null) return;
+    const clean = sanitizeNote(draft).toUpperCase().slice(0, prefixMax).trim();
+    const auto = notePrefix({ name: sub.name }, due);
+    // Trùng nội dung mặc định → lưu trống để sau này đổi tên gói vẫn tự theo
+    const value = !clean || clean === auto ? null : clean;
+    if (value !== (sub.transferNote ?? null)) {
+      actions.update(sub.id, { transferNote: value });
+      toast({ message: 'Đã lưu nội dung chuyển khoản' });
+    }
+    setDraft(null);
+  };
   const qr = useMemo(
     () => qrDataUrl(buildVietQR({ bankBin: PAYMENT.bankBin, accountNumber: PAYMENT.accountNumber, amount: sub.price, note })),
     [sub.price, note],
@@ -38,7 +50,12 @@ export function BillSheet({ sub, onClose, onEdit }: { sub: Subscription; onClose
     setBusy(true);
     try {
       const dataUrl = await Promise.race([
-        toPng(billRef.current, { pixelRatio: 3, backgroundColor: '#FFFFFF', cacheBust: true }),
+        toPng(billRef.current, {
+          pixelRatio: 3,
+          backgroundColor: '#FFFFFF',
+          cacheBust: true,
+          filter: (n) => !(n instanceof Element && n.hasAttribute('data-no-capture')),
+        }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
       ]);
       const fileName = `bill-${normalize(sub.name).replace(/[^a-z0-9]+/g, '-')}.png`;
@@ -120,9 +137,49 @@ export function BillSheet({ sub, onClose, onEdit }: { sub: Subscription; onClose
           <p className={`${PAYMENT.accountName ? '' : 'mt-3'} text-[15px]`}>
             <span className="font-semibold">{PAYMENT.bankName}</span> · <span className="money">{PAYMENT.accountNumber}</span>
           </p>
-          <p className="mt-3 rounded-lg bg-chip px-3 py-2 text-[13px] text-muted">
-            Nội dung CK: <span className="font-semibold text-ink">{note}</span>
-          </p>
+          {draft === null ? (
+            <button
+              type="button"
+              onClick={() => setDraft(notePrefix(sub, due))}
+              className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-lg bg-chip px-3 py-2 text-[13px] text-muted hover:text-ink"
+            >
+              <span>Nội dung CK: <span className="font-semibold text-ink">{note}</span></span>
+              {/* Ẩn icon khi chụp ảnh bill */}
+              <Pencil size={13} className="shrink-0" data-no-capture />
+            </button>
+          ) : (
+            <div className="mt-3 text-left" data-no-capture>
+              <label htmlFor="transfer-note" className="text-[13px] text-muted">Nội dung CK</label>
+              <div className="mt-1 flex items-center gap-2 rounded-xl border border-accent bg-surface px-3 ring-2 ring-accent/15">
+                <input
+                  id="transfer-note"
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => setDraft(sanitizeNote(e.target.value + (e.target.value.endsWith(' ') ? ' ' : '')).toUpperCase().slice(0, prefixMax))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveNote();
+                    if (e.key === 'Escape') { e.stopPropagation(); setDraft(null); }
+                  }}
+                  maxLength={prefixMax}
+                  placeholder={notePrefix({ name: sub.name }, due)}
+                  className="h-11 min-w-0 flex-1 bg-transparent text-[15px] font-semibold uppercase outline-none placeholder:font-normal placeholder:text-subtle"
+                />
+                <span className="money shrink-0 text-[15px] text-muted">{noteSuffix(due).trim()}</span>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between text-[12px] text-subtle">
+                <span>Tháng/năm tự đổi mỗi kỳ · <span className="money">{draft.length}/{prefixMax}</span></span>
+                <button type="button" onClick={() => setDraft(notePrefix({ name: sub.name }, due))} className="inline-flex min-h-8 shrink-0 items-center gap-1 whitespace-nowrap hover:text-ink">
+                  <RotateCcw size={12} /> Mặc định
+                </button>
+              </div>
+              <div className="mt-2 flex gap-2">
+                <GhostButton type="button" onClick={() => setDraft(null)} className="min-h-11 flex-1 text-[15px]">Hủy</GhostButton>
+                <PrimaryButton type="button" onClick={saveNote} className="flex min-h-11 flex-1 items-center justify-center gap-1.5 text-[15px]">
+                  <Check size={18} /> Lưu
+                </PrimaryButton>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

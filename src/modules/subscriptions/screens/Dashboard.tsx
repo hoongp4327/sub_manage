@@ -41,7 +41,9 @@ export function Dashboard() {
   const collect = active.filter((s) => s.isCollect);
   const visibleOwn = own.filter(matches);
   const visibleCollect = collect.filter(matches);
-  const [bill, setBill] = useState<Subscription | null>(null);
+  // Giữ id, không giữ bản chụp — bill luôn hiện dữ liệu mới nhất (vd. vừa sửa nội dung CK)
+  const [billId, setBillId] = useState<string | null>(null);
+  const bill = billId ? data.find((s) => s.id === billId) ?? null : null;
 
   const renderCard = (s: Subscription) => (
     <SubscriptionCard
@@ -50,7 +52,7 @@ export function Dashboard() {
       today={today}
       isNew={lastAdded.size > 0 && !lastAdded.has(s.id)}
       onEdit={() => setForm({ kind: 'edit', sub: s })}
-      onOpen={s.isCollect ? () => setBill(s) : undefined}
+      onOpen={s.isCollect ? () => setBillId(s.id) : undefined}
       onDelete={() => remove(s.id, s.name)}
       onCancelRenewal={(endsAt) => {
         actions.cancelRenewal(s.id, endsAt);
@@ -151,9 +153,9 @@ export function Dashboard() {
       {bill && (
         <BillSheet
           sub={bill}
-          onClose={() => setBill(null)}
+          onClose={() => setBillId(null)}
           onEdit={() => {
-            setBill(null);
+            setBillId(null);
             setForm({ kind: 'edit', sub: bill });
           }}
         />

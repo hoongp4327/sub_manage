@@ -26,7 +26,7 @@ npm run build    # build bản production vào dist/
 Không dùng Google: app có **1 tài khoản duy nhất**, mật khẩu chính là mật mã 6 số ở màn khóa.
 
 1. Tạo project miễn phí tại https://supabase.com.
-2. **SQL Editor** → dán và chạy lần lượt các file trong `supabase/migrations/` (`0001_subscriptions.sql`, `0002_collect.sql`, `0003_habits.sql`, `0004_habit_kind_notes.sql`).
+2. **SQL Editor** → dán và chạy lần lượt các file trong `supabase/migrations/` (`0001_subscriptions.sql`, `0002_collect.sql`, `0003_habits.sql`, `0004_habit_kind_notes.sql`, `0005_transfer_note.sql`).
 3. **Authentication → Sign In / Providers**: giữ **Email** bật, **tắt "Allow new users to sign up"** (không ai tạo thêm tài khoản được).
 4. **Authentication → Users → Add user → Create new user**: email của bạn, mật khẩu = mật mã 6 số (vd. `300920`), tick **Auto Confirm User**.
 5. **Project Settings → API** → copy `Project URL` và khóa `anon` / *publishable* (không dùng `service_role`).

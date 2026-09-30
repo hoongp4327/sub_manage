@@ -22,6 +22,8 @@ export interface Subscription {
   isCollect?: boolean;
   /** Người cần thu tiền (với gói thu hộ) */
   payer?: string | null;
+  /** Nội dung CK tự đặt (chỉ phần chữ; tháng/năm app tự gắn). Trống = lấy tên gói */
+  transferNote?: string | null;
   /** Đã hủy gia hạn: vẫn dùng đến ngày này (yyyy-mm-dd), sau đó tự vào Lưu trữ */
   endsAt?: string | null;
   status: Status;
